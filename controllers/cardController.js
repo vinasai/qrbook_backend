@@ -30,6 +30,18 @@ const generateCardId = async (userId) => {
   return `${userId}_${String(cardCount + 1).padStart(3, "0")}`;
 };
 
+// Function to decode encoded ID
+const decodeId = (encodedId) => {
+  let base64Str = encodedId
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const padLength = (4 - (base64Str.length % 4)) % 4;
+  base64Str += '='.repeat(padLength);
+
+  return Buffer.from(base64Str, 'base64').toString('utf8');
+};
+
 // ✅ Get all cards with pagination
 exports.getCards = async (req, res) => {
   try {
@@ -70,9 +82,22 @@ exports.getCardsByUserId = async (req, res) => {
   }
 };
 
+// ✅ Get card by ID or encoded path
 exports.getCardById = async (req, res) => {
   try {
-    const card = await Card.findOne({ id: req.params.id });
+    const { id } = req.params;
+    let decodedId = id;
+
+    try {
+      // Attempt to decode the ID
+      const decodedPath = decodeEncodedPath(id);
+      decodedId = decodedPath.startsWith('/') ? decodedPath.slice(1) : decodedPath;
+    } catch (error) {
+      // If decoding fails, proceed with original ID
+      console.log('Using original ID:', id);
+    }
+
+    const card = await Card.findOne({ id: decodedId });
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }
@@ -82,7 +107,25 @@ exports.getCardById = async (req, res) => {
   }
 };
 
-// ✅ Create a new card
+// New controller for encoded paths
+exports.getCardByEncodedId = async (req, res) => {
+  try {
+    const encodedId = req.params.encodedId;
+
+    // Find by encodedPath field directly
+    const card = await Card.findOne({ encodedPath: encodedId });
+    
+    if (!card) {
+      return res.status(404).json({ message: "Card not found" });
+    }
+
+    res.json(card);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ✅ Create a new card (updated with encoded path)
 exports.createCard = async (req, res) => {
   const {
     userId,
@@ -96,26 +139,24 @@ exports.createCard = async (req, res) => {
   } = req.body;
 
   try {
-     // Validate mobile number format
-     const phoneRegex = /^\+\d{1,4}\d{6,14}$/;
-     if (!phoneRegex.test(mobileNumber)) {
-       return res.status(400).json({ message: "Invalid mobile number format" });
-     }
-    // Generate custom card ID
-    const id = await generateCardId(userId);
-
-    // Extract website name from Link header
-    const linkHeader = req.get("Link");
-    if (!linkHeader) {
-      return res.status(400).json({ message: "Link header is required" });
+    // Validate mobile number format
+    const phoneRegex = /^\+\d{1,4}\d{6,14}$/;
+    if (!phoneRegex.test(mobileNumber)) {
+      return res.status(400).json({ message: "Invalid mobile number format" });
     }
+
+    // Generate ID WITHOUT leading slash
+    const id = await generateCardId(userId);
+    const encodedPath = Buffer.from(id)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    // Generate links with clean encoded ID
     const websiteName = "QRbook.ca";
-
-    // Generate business card link
-    const businessCardLink = `https://${websiteName}/business-card/${id}`;
-
-    // Generate temporary card link
-    const temporaryCardLink = `https://${websiteName}/temporary-card/${id}`;
+    const businessCardLink = `https://${websiteName}/${encodedPath}`;
+    const temporaryCardLink = `https://${websiteName}/temporary/${encodedPath}`;
 
     // Set expiry dates
     const temporaryCardExpiry = new Date();
@@ -126,8 +167,10 @@ exports.createCard = async (req, res) => {
     // Get uploaded image path
     const profileImage = req.file ? `/uploads/${req.file.filename}` : "";
 
+    // Store card with original ID and encoded path
     const newCard = new Card({
       id,
+      encodedPath,
       userId,
       name,
       pronouns,
@@ -189,6 +232,60 @@ exports.updateCard = async (req, res) => {
 
     res.json(updatedCard);
   } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// New controller to update a card using id
+exports.updateCardById = async (req, res) => {
+  const {
+    name,
+    pronouns,
+    jobPosition,
+    mobileNumber,
+    email,
+    description,
+    socialMedia,
+    paymentConfirmed,
+  } = req.body;
+
+  try {
+    // Get uploaded image path
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+    // Parse socialMedia field as an array of objects if it is a valid JSON string
+    let parsedSocialMedia = socialMedia;
+    if (typeof socialMedia === 'string') {
+      try {
+        parsedSocialMedia = JSON.parse(socialMedia);
+      } catch (error) {
+        return res.status(400).json({ message: "Invalid socialMedia format" });
+      }
+    }
+
+    const updatedCard = await Card.findOneAndUpdate(
+      { id: req.params.id },
+      {
+        name,
+        pronouns,
+        jobPosition,
+        mobileNumber,
+        email,
+        profileImage,
+        description,
+        socialMedia: parsedSocialMedia,
+        paymentConfirmed,
+      },
+      { new: true }
+    );
+
+    if (!updatedCard) {
+      return res.status(404).json({ message: "Card not found" });
+    }
+
+    res.json(updatedCard);
+  } catch (error) {
+    console.error("Error updating card:", error); // Log the error details
     res.status(400).json({ message: error.message });
   }
 };

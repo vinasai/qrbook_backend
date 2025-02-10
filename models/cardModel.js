@@ -6,6 +6,11 @@ const cardSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  encodedPath: {
+    type: String,
+    unique: true,
+    required: true,
+  },
   userId: {
     type: String,
     required: true,

@@ -14,5 +14,9 @@ router.put("/:id", upload.single("profileImage"), cardController.updateCard);
 router.delete("/:id", cardController.deleteCard);
 router.get("/image/:filename", cardController.getImage);
 router.get("/user/:userId", cardController.getCardsByUserId);
+// New encoded path route
+router.get("/encoded/:encodedId", cardController.getCardByEncodedId);
+// New route to update a card using id
+router.put("/update/:id", upload.single("profileImage"), cardController.updateCardById);
 
 module.exports = router;

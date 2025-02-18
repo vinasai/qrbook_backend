@@ -238,26 +238,12 @@ exports.updateCard = async (req, res) => {
 
 // New controller to update a card using id
 exports.updateCardById = async (req, res) => {
-  const {
-    name,
-    pronouns,
-    jobPosition,
-    mobileNumber,
-    email,
-    description,
-    socialMedia,
-    paymentConfirmed,
-  } = req.body;
-
   try {
-    // Get uploaded image path
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
-
-    // Parse socialMedia field as an array of objects if it is a valid JSON string
-    let parsedSocialMedia = socialMedia;
-    if (typeof socialMedia === 'string') {
+    // Parse social media from JSON string
+    let parsedSocialMedia = [];
+    if (req.body.socialMedia) {
       try {
-        parsedSocialMedia = JSON.parse(socialMedia);
+        parsedSocialMedia = JSON.parse(req.body.socialMedia);
       } catch (error) {
         return res.status(400).json({ message: "Invalid socialMedia format" });
       }
@@ -266,15 +252,15 @@ exports.updateCardById = async (req, res) => {
     const updatedCard = await Card.findOneAndUpdate(
       { id: req.params.id },
       {
-        name,
-        pronouns,
-        jobPosition,
-        mobileNumber,
-        email,
-        profileImage,
-        description,
+        name: req.body.name,
+        pronouns: req.body.pronouns,
+        jobPosition: req.body.jobPosition,
+        mobileNumber: req.body.mobileNumber,
+        email: req.body.email,
+        profileImage: req.file ? `/uploads/${req.file.filename}` : undefined,
+        description: req.body.description,
         socialMedia: parsedSocialMedia,
-        paymentConfirmed,
+        paymentConfirmed: req.body.paymentConfirmed,
       },
       { new: true }
     );
@@ -285,7 +271,7 @@ exports.updateCardById = async (req, res) => {
 
     res.json(updatedCard);
   } catch (error) {
-    console.error("Error updating card:", error); // Log the error details
+    console.error("Error updating card:", error);
     res.status(400).json({ message: error.message });
   }
 };

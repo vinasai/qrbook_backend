@@ -11,5 +11,6 @@ router.get("/users/all-admins", userController.getAllAdmins); // All admins with
 router.get("/users/:userId", userController.getUserById);
 router.put("/users/:userId", userController.updateUser);
 router.delete("/users/:userId", userController.deleteUser);
+router.post("/users/:userId/change-password", userController.changePassword);
 
 module.exports = router;

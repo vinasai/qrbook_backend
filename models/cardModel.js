@@ -39,6 +39,13 @@ const cardSchema = new mongoose.Schema({
     unique: true,
     match: /^\S+@\S+\.\S+$/, // Regex to validate email format
   },
+  website: {
+    type: String,
+    // No validation required for website
+  },
+  address: {
+    type: String,
+  },
   profileImage: {
     type: String,
     // This should be the filename or file reference in case of image storage

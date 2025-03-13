@@ -136,6 +136,8 @@ exports.createCard = async (req, res) => {
     email,
     description,
     socialMedia,
+    website,
+    address,
   } = req.body;
 
   try {
@@ -177,6 +179,8 @@ exports.createCard = async (req, res) => {
       jobPosition,
       mobileNumber,
       email,
+      website,
+      address,
       profileImage,
       description,
       socialMedia,
@@ -204,6 +208,8 @@ exports.updateCard = async (req, res) => {
     description,
     socialMedia,
     paymentConfirmed,
+    website,
+    address,
   } = req.body;
 
   try {
@@ -218,6 +224,8 @@ exports.updateCard = async (req, res) => {
         jobPosition,
         mobileNumber,
         email,
+        website,
+        address,
         profileImage,
         description,
         socialMedia,
@@ -257,6 +265,8 @@ exports.updateCardById = async (req, res) => {
         jobPosition: req.body.jobPosition,
         mobileNumber: req.body.mobileNumber,
         email: req.body.email,
+        website: req.body.website,
+        address: req.body.address,
         profileImage: req.file ? `/uploads/${req.file.filename}` : undefined,
         description: req.body.description,
         socialMedia: parsedSocialMedia,

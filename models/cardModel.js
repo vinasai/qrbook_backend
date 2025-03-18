@@ -31,7 +31,7 @@ const cardSchema = new mongoose.Schema({
   mobileNumber: {
     type: String,
     required: true,
-    match: /^\+\d{1,4}\d{6,14}$/, // Updated regex for international format
+    match: /^\+\d{1,4}\s\d{2}-\d{3}-\d{4}$/, // Updated regex for format: +XX XX-XXX-XXXX
   },
   email: {
     type: String,
@@ -41,14 +41,12 @@ const cardSchema = new mongoose.Schema({
   },
   website: {
     type: String,
-    // No validation required for website
   },
   address: {
     type: String,
   },
   profileImage: {
     type: String,
-    // This should be the filename or file reference in case of image storage
   },
   description: {
     type: String,
@@ -72,24 +70,15 @@ const cardSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  temporaryCardExpiry: {
-    type: Date,
-    required: true,
-    expires: "2d", // TTL index to auto-delete after 2 days
-  },
   paymentConfirmed: {
     type: Boolean,
     default: false,
   },
-  paymentExpiry: {
-    type: Date,
-    required: true,
-    expires: "2d", // TTL index to auto-delete after 2 days if payment isn't confirmed
-  },
   createdAt: {
     type: Date,
     default: Date.now,
-  },
+    required: true
+  }
 });
 
 // Create the model from the schema

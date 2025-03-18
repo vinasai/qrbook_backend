@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema({
     enum: ["admin", "user"], // Example types, you can modify as needed
     default: "user", // Default value
   },
+  resetPasswordOTP: String,
+  resetPasswordOTPExpiry: Date,
 });
 
 const User = mongoose.model("User", userSchema);

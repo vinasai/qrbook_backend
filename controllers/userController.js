@@ -2,11 +2,65 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const nodemailer = require("nodemailer");
 
 // Generate a custom userId (if necessary)
 const generateUserId = async () => {
   const userCount = await User.countDocuments();
   return `User${101 + userCount}`;
+};
+
+// Generate OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send OTP via email
+const sendOTPByEmail = async (email, otp) => {
+  /*
+  // Ethereal Email Configuration (for testing)
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    auth: {
+      user: process.env.TEMP_EMAIL_USER,
+      pass: process.env.TEMP_EMAIL_PASS
+    }
+  });
+
+  */
+
+  /* Real Gmail SMTP Configuration */
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD // Use App Password for better security
+    }
+  });
+  
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER, // Change to process.env.EMAIL_USER when using Gmail
+    to: email,
+    subject: 'Password Reset OTP',
+    text: `Your OTP for password reset is: ${otp}. This OTP will expire in 10 minutes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Password Reset Request</h2>
+        <p>Your OTP for password reset is:</p>
+        <h1 style="color: #4F46E5; font-size: 32px; letter-spacing: 5px; margin: 20px 0;">${otp}</h1>
+        <p>This OTP will expire in 10 minutes.</p>
+        <p style="color: #666; font-size: 14px; margin-top: 20px;">
+          If you didn't request this password reset, please ignore this email.
+        </p>
+      </div>
+    `
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+  return info;
 };
 
 // Get all users
@@ -252,6 +306,62 @@ exports.changePassword = async (req, res) => {
     await user.save();
 
     res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Forgot password - send OTP
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const otp = generateOTP();
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 10); // OTP valid for 10 minutes
+
+    user.resetPasswordOTP = otp;
+    user.resetPasswordOTPExpiry = otpExpiry;
+    await user.save();
+
+    await sendOTPByEmail(email, otp);
+
+    res.json({ message: "OTP sent to your email" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Verify OTP and reset password
+exports.verifyOTPAndResetPassword = async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ 
+      email,
+      resetPasswordOTP: otp,
+      resetPasswordOTPExpiry: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Update password and clear OTP fields
+    user.password = hashedPassword;
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordOTPExpiry = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

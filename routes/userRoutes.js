@@ -13,4 +13,8 @@ router.put("/users/:userId", userController.updateUser);
 router.delete("/users/:userId", userController.deleteUser);
 router.post("/users/:userId/change-password", userController.changePassword);
 
+// Forgot password routes
+router.post("/users/forgot-password", userController.forgotPassword);
+router.post("/users/verify-otp", userController.verifyOTPAndResetPassword);
+
 module.exports = router;

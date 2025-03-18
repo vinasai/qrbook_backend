@@ -101,6 +101,7 @@ exports.getCardById = async (req, res) => {
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }
+
     res.json(card);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -141,10 +142,12 @@ exports.createCard = async (req, res) => {
   } = req.body;
 
   try {
-    // Validate mobile number format
-    const phoneRegex = /^\+\d{1,4}\d{6,14}$/;
+    // Validate mobile number format (+XX XX-XXX-XXXX)
+    const phoneRegex = /^\+\d{1,4}\s\d{2}-\d{3}-\d{4}$/;
     if (!phoneRegex.test(mobileNumber)) {
-      return res.status(400).json({ message: "Invalid mobile number format" });
+      return res.status(400).json({ 
+        message: "Invalid mobile number format. Please use format: +[country code] XX-XXX-XXXX" 
+      });
     }
 
     // Generate ID WITHOUT leading slash
@@ -159,12 +162,6 @@ exports.createCard = async (req, res) => {
     const websiteName = "QRbook.ca";
     const businessCardLink = `https://${websiteName}/${encodedPath}`;
     const temporaryCardLink = `https://${websiteName}/temporary/${encodedPath}`;
-
-    // Set expiry dates
-    const temporaryCardExpiry = new Date();
-    temporaryCardExpiry.setDate(temporaryCardExpiry.getDate() + 2);
-    const paymentExpiry = new Date();
-    paymentExpiry.setDate(paymentExpiry.getDate() + 4);
 
     // Get uploaded image path
     const profileImage = req.file ? `/uploads/${req.file.filename}` : "";
@@ -186,8 +183,6 @@ exports.createCard = async (req, res) => {
       socialMedia,
       businessCardLink,
       temporaryCardLink,
-      temporaryCardExpiry,
-      paymentExpiry,
     });
 
     const savedCard = await newCard.save();
@@ -213,6 +208,16 @@ exports.updateCard = async (req, res) => {
   } = req.body;
 
   try {
+    // Validate mobile number if it's being updated
+    if (mobileNumber) {
+      const phoneRegex = /^\+\d{1,4}\s\d{2}-\d{3}-\d{4}$/;
+      if (!phoneRegex.test(mobileNumber)) {
+        return res.status(400).json({ 
+          message: "Invalid mobile number format. Please use format: +[country code] XX-XXX-XXXX" 
+        });
+      }
+    }
+
     // Get uploaded image path
     const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
 
@@ -305,32 +310,6 @@ exports.deleteCard = async (req, res) => {
     res.json({ message: "Card deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
-};
-
-// Delete cards with expired payment dates and unconfirmed payments
-exports.deleteExpiredUnpaidCards = async () => {
-  try {
-    const now = new Date();
-    const expiredCards = await Card.find({
-      paymentConfirmed: false,
-      createdAt: { $lt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) }
-    });
-
-    for (const card of expiredCards) {
-      // Delete the image file from uploads folder
-      if (card.profileImage) {
-        const imagePath = path.join(__dirname, "..", card.profileImage);
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-        }
-      }
-      await card.remove();
-    }
-
-    console.log(`Deleted ${expiredCards.length} expired unpaid cards.`);
-  } catch (error) {
-    console.error("Error deleting expired unpaid cards:", error);
   }
 };
 
